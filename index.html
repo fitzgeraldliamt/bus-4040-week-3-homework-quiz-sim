@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Moo-ve Fast Quiz - BUS 4040</title>
+<style>
+  :root {
+    --grass: #7fb35a;
+    --grass-dark: #4f8a3a;
+    --barn: #b3382c;
+    --cream: #fffaf0;
+    --ink: #2b2b2b;
+    --spot: #2b2b2b;
+    --good: #2e7d32;
+    --good-bg: #e3f4e0;
+    --bad: #b3261e;
+    --bad-bg: #fbe5e2;
+    --sky: #bfe3f5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+    color: var(--ink);
+    background: linear-gradient(var(--sky) 0, var(--sky) 38%, var(--grass) 38%, var(--grass-dark) 100%);
+    background-attachment: fixed;
+    padding: 20px 16px 60px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 14px; }
+  header h1 { margin: 0; font-size: 1.9rem; color: var(--barn); text-shadow: 2px 2px 0 #fff; }
+  header p { margin: 4px 0 0; font-weight: bold; }
+  .card {
+    background: var(--cream);
+    border: 4px solid var(--spot);
+    border-radius: 24px 40px 24px 40px;
+    padding: 24px;
+    position: relative;
+    box-shadow: 6px 6px 0 rgba(0,0,0,.25);
+    overflow: hidden;
+  }
+  /* cow spots */
+  .card::before, .card::after {
+    content: "";
+    position: absolute;
+    background: rgba(43,43,43,.09);
+    border-radius: 58% 42% 55% 45%;
+    pointer-events: none;
+  }
+  .card::before { width: 140px; height: 100px; top: -30px; right: -20px; }
+  .card::after { width: 110px; height: 130px; bottom: -40px; left: -25px; }
+  .card > * { position: relative; z-index: 1; }
+
+  .bar { height: 14px; background: #fff; border: 2px solid var(--spot); border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
+  .bar > div { height: 100%; width: 0; background: var(--grass-dark); transition: width .3s; }
+  .meta { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 14px; }
+  h2 { margin: 0 0 16px; font-size: 1.3rem; line-height: 1.35; }
+  .opt {
+    display: block; width: 100%; text-align: left;
+    font: inherit; font-size: 1.05rem;
+    background: #fff; border: 3px solid var(--spot); border-radius: 14px;
+    padding: 12px 14px; margin-bottom: 10px; cursor: pointer;
+  }
+  .opt:hover:not(:disabled) { background: #fff3c4; }
+  .opt:disabled { cursor: default; }
+  .opt.correct { background: var(--good-bg); border-color: var(--good); }
+  .opt.wrong { background: var(--bad-bg); border-color: var(--bad); }
+  .opt:focus-visible, .btn:focus-visible { outline: 3px solid #1a5fb4; outline-offset: 2px; }
+
+  .box { border-radius: 14px; padding: 14px; margin-top: 14px; border: 3px solid var(--spot); }
+  .box h3 { margin: 0 0 6px; font-size: 1.1rem; }
+  .box p { margin: 0; line-height: 1.5; }
+  .explain.right { background: var(--good-bg); border-color: var(--good); }
+  .explain.miss { background: var(--bad-bg); border-color: var(--bad); }
+  .reward { background: #fff3c4; border-style: dashed; animation: pop .4s ease; }
+  @keyframes pop { from { transform: scale(.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .hidden { display: none; }
+
+  .btn {
+    font: inherit; font-size: 1.1rem; font-weight: bold;
+    background: var(--barn); color: #fff;
+    border: 3px solid var(--spot); border-radius: 14px;
+    padding: 12px 22px; margin-top: 16px; cursor: pointer;
+    box-shadow: 3px 3px 0 rgba(0,0,0,.3);
+  }
+  .btn:hover { filter: brightness(1.1); }
+  .center { text-align: center; }
+  .big-cow { font-size: 4.5rem; line-height: 1; margin: 6px 0; }
+  .score { font-size: 2.4rem; font-weight: bold; color: var(--barn); margin: 8px 0; }
+  ul.rules { text-align: left; display: inline-block; line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🐮 The Moo-ve Fast Quiz 🐮</h1>
+    <p>BUS 4040 - AI for Business Applications - Weeks 1, 2 &amp; 3</p>
+  </header>
+  <div class="card" id="card"></div>
+</div>
+
+<script>
+// Each question: [question, correct answer, [wrong answers], explanation]
+const BANK = [
+  // ---------- Week 1 ----------
+  ["How much of your grade is the Final Exam?", "10%", ["5%", "15%", "20%"],
+   "The Final Exam is worth 10%. Nothing on it is a trick, and every question on it gets discussed in class."],
+  ["Which course component is worth 5% of your grade?", "GitHub Setup", ["AI Tools", "Final Presentation", "Final Exam"],
+   "GitHub Setup is 5% (GitHub connectivity and a successful Pull Request). AI Tools, Final Presentation, and Final Exam are each 10%."],
+  ["Which of these is worth 15% of your grade?", "Peer Review", ["AI Tools", "Data Conversion", "Final Exam"],
+   "Peer Review is 15%. SPEC and Final Product are also 15%. AI Tools, Data Conversion, and Final Exam are 10% each."],
+  ["Will you learn to program in this class?", "No - AI does the building", ["Yes - you will write all the code yourself", "Yes - but only in the last four weeks", "Only if you pick the CLI"],
+   "You will not learn to program in this class. You decide what gets built with the tools, and AI does the building."],
+  ["Who decides what gets built with the tools?", "You do", ["The professor", "The AI, on its own", "The GitHub website"],
+   "The professor shows you the tools and you decide what gets built with them."],
+  ["In the course arc, what comes right after \"tools\"?", "Process overview", ["Customer interview", "Requirements", "Packaging"],
+   "The arc is: tools, process overview, customer interview, requirements, SPEC, data layer, AI builds working app, packaging."],
+  ["Which part of the course arc comes right before \"AI builds working app\"?", "Data layer", ["SPEC", "Packaging", "Customer interview"],
+   "The order is ... SPEC, data layer, AI builds working app, packaging. So the data layer comes just before the AI builds the app."],
+  ["How long is the course?", "One credit, sixteen weeks", ["Three credits, sixteen weeks", "One credit, eight weeks", "Two credits, twelve weeks"],
+   "It is a one credit, sixteen week class."],
+  ["Why is a business school teaching an AI course?", "AI is removing the software engineer bottleneck and moving the work toward business leaders and product owners",
+   ["Business leaders already know how to program", "AI courses are easier to grade", "Software engineers are no longer needed to describe problems"],
+   "Until recently the bottleneck was expert human software engineers. AI is removing it and shifting the work \"left\" toward business leaders and product owners."],
+  ["Part of your grade depends on how your teammates see your collegiality. What is that called in the course?", "Teammate-ship", ["Herd-ship", "Group-think", "Partner-score"],
+   "You work in teams, and part of your grade is how teammates evaluate your collegiality (teammate-ship)."],
+  ["What will be on the final exam?", "Only things that were discussed in class", ["Surprise topics to test you", "Things you must learn on your own", "Only the homework questions"],
+   "Everything in the final will be discussed in class, and nothing on it is a trick."],
+  ["What is the Week 1 homework?", "Get a GitHub account, with your @uidaho.edu account associated with it", ["Build a webpage", "Set up Mindrouter", "Write a micro-SPEC"],
+   "Homework was a GitHub account. If you already have one, make sure your @uidaho.edu account is associated with it."],
+  ["How long is the Final Presentation?", "5 minutes, given by a team", ["10 minutes, given alone", "20 minutes, given by a team", "5 minutes, given alone"],
+   "The Final Presentation is a 5-minute team presentation of your solution, worth 10%."],
+  ["What does the professor want you to do when you finish the class?", "Take knowledge with you", ["Memorize the slides", "Become a software engineer", "Skip the final"],
+   "One of the stated expectations is that you take knowledge with you when you finish the class."],
+
+  // ---------- Week 2 ----------
+  ["Who created Git, and when?", "Linus Torvalds, in 2005", ["Linus Torvalds, in 1975", "A team at GitHub, in 2011", "The Linux kernel team, in 1995"],
+   "In 2005 Linus Torvalds created Git for Linux kernel development after the project lost access to its proprietary tool."],
+  ["Why did Linus Torvalds create Git?", "The Linux kernel project lost access to its proprietary tool", ["He wanted to build GitHub", "Centralized servers were too fast", "Nobody had tracked changes before"],
+   "The Linux kernel project lost access to its proprietary tool, so he made a free, fast, decentralized one."],
+  ["What did early version control tools (1970s into the 1980s) do?", "Tracked changes to individual files on a single machine, one user at a time", ["Versioned entire projects on a central server", "Gave every developer a full copy of the history", "Reviewed AI-generated code"],
+   "Early tools tracked changes to individual files, on one machine, for one user at a time."],
+  ["What was the problem with the centralized systems of the 1990s into the 2000s?", "Everyone depended on one central server to commit, branch, or view history", ["They could only track one file", "They did not track history at all", "They were not allowed on Linux"],
+   "Centralized systems versioned entire projects, but required everyone to depend on one central server."],
+  ["What makes Git decentralized?", "Every developer holds a full copy of the entire history", ["One server holds everything", "Only the owner can see history", "It only tracks one file at a time"],
+   "Every developer has a full copy of the history, so there is no single bottleneck or single point of failure."],
+  ["Why does Git matter for AI-generated code?", "Every change is reviewable, traceable, and reversible", ["It makes the AI faster", "It writes the code for you", "It removes the need to check anything"],
+   "Git is the safety net for moving fast with AI code. You can see what changed, undo it, and have someone check it before it reaches a customer."],
+  ["When creating a repo on the GitHub website, why set Add README to On?", "It creates an initial commit that maps the repo to the main branch", ["It makes the repo free", "It automatically builds a webpage", "It clones the repo to your computer"],
+   "Creating the README creates an initial commit that maps the repo to the main branch."],
+  ["What does clone do?", "Copies the repo from GitHub to your local computer", ["Creates a new branch", "Creates a Pull Request", "Pushes your branch to GitHub"],
+   "clone copies the repo from GitHub to your local computer."],
+  ["What does checkout (to a new branch) do?", "Creates a new timeline - a copy of main", ["Deletes main", "Sends your changes to GitHub", "Merges your branch into main"],
+   "In the multiverse picture, checkout a branch creates a new timeline (copy) of main."],
+  ["In the multiverse picture of Git, what is main?", "The original reality", ["A new timeline", "A Pull Request", "A staged file"],
+   "main is the original reality. Branches are new timelines copied from it."],
+  ["What does add do?", "Stages the files that will be added to the branch", ["Pushes the branch to GitHub", "Creates a Pull Request", "Copies the repo to your computer"],
+   "add stages the files. Using -A stages all changed files."],
+  ["What does commit do?", "Updates your local branch with the staged changes", ["Updates the branch on GitHub", "Copies the repo from GitHub", "Merges the branch into main"],
+   "commit updates changes (the staged files) to your local branch."],
+  ["What does push do?", "Updates the remote branch, meaning the branch is sent to GitHub", ["Stages the files", "Copies the repo to your computer", "Starts a new timeline"],
+   "push updates the remote branch, in other words the branch is pushed to GitHub."],
+  ["What does a Pull Request (pr) do?", "Asks to merge the branch into main", ["Copies the repo to your computer", "Stages your files", "Deletes the branch"],
+   "pr creates a Pull Request to merge the branch into main. You then review it on GitHub and merge it."],
+  ["Which is the correct order for getting a change onto GitHub?", "Create a branch, add, commit, push, create the PR", ["Commit, add, push, create a branch, create the PR", "Push, add, commit, create the PR, create a branch", "Create the PR, add, commit, push, create a branch"],
+   "The steps are: create and switch to a branch, stage the files, commit, push, then create the PR. Review and merge come last."],
+  ["In the hotel example, what does the stay cost?", "$50 a night, or $75 for two nights", ["$75 a night", "$50 for two nights", "$25 a night"],
+   "The daily rate is $50, and if you stay for two nights it's $75."],
+  ["In the hotel example, what file should the AI create?", "A single index.html file", ["Several separate page files", "A README only", "A PDF"],
+   "The micro-SPEC asks for the page to be created as a single index.html file."],
+  ["What is the name of the hotel in the example?", "Cheap & Clean Rooms by the Garden", ["Sunset Bird Inn", "Clean Garden Hotel & Breakfast", "Blue Flower Rooms"],
+   "The hotel is called \"Cheap & Clean Rooms by the Garden\"."],
+  ["What default answer does the professor give when software asks for access to your private folders?", "No and deny", ["Yes, to save time", "Yes, if it has a nice website", "Ask the AI to decide"],
+   "The professor says 'no' and 'deny' by default. AI software is the wild west, so avoid granting unfamiliar software access to private folders."],
+  ["How was a colleague of the professor hacked?", "He downloaded a voice to text LLM from a site pretending to be a trusted software vendor", ["He used Git without a README", "He cloned a repo with no branches", "He forgot to push his branch"],
+   "A site masqueraded as a trusted software vendor. When in doubt, slow down and do your homework."],
+
+  // ---------- Week 3 ----------
+  ["What does AI do, in simple terms?", "Takes text in and produces text out by using math to predict the next word", ["Thinks exactly like a person", "Looks up answers in a single table", "Only works with pictures"],
+   "You give it words, and it uses math to predict the next word. That is all you need to know to use it successfully."],
+  ["How is an AI model trained?", "A \"Guess, Check, and Tune\" cycle while reviewing data", ["By copying one document", "By a person typing every answer", "By being turned on once"],
+   "A model is trained by reviewing data in a sophisticated \"Guess, Check, and Tune\" cycle."],
+  ["When did the AI we use today surface?", "Around 2011", ["Around 1950", "Around 1999", "Around 2023"],
+   "AI research started in the 1950's, today's AI surfaced around 2011, and progress has been explosive since 2023."],
+  ["Why do different AI models differ?", "They are different sizes and had different training, so speed, cost, and output quality differ", ["They all work exactly the same", "They only differ in color", "They only differ in name"],
+   "Different sizes and different training give different functionality at different speed, cost, and output quality."],
+  ["Which company makes Claude?", "Anthropic", ["OpenAI", "Google", "Meta"],
+   "Anthropic makes Claude. OpenAI makes ChatGPT, Google makes Gemini and Gemma, and Meta makes Llama."],
+  ["What are the four Claude model tiers, from largest to smallest?", "Fable, Opus, Sonnet, Haiku", ["Haiku, Sonnet, Opus, Fable", "Opus, Fable, Haiku, Sonnet", "Sol, Terra, Luna, Astra"],
+   "Largest to smallest: Fable, Opus, Sonnet, Haiku."],
+  ["Which Claude model is the cost effective everyday workhorse?", "Sonnet", ["Fable", "Opus", "Haiku"],
+   "Sonnet is the cost effective everyday workhorse."],
+  ["Which Claude model is fast, cheap, and less capable, and good for simple high volume work?", "Haiku", ["Fable", "Opus", "Sonnet"],
+   "Haiku is fast, cheap, and less capable, good for simple high volume work."],
+  ["How does Opus compare with Sonnet?", "A solid step up in capability, at roughly twice the cost", ["Cheaper and less capable", "Exactly the same", "Ten times the cost"],
+   "Opus is a solid step up in capability from Sonnet, at roughly twice the cost."],
+  ["Which Claude model is the top end one for the hardest problems?", "Fable", ["Haiku", "Sonnet", "Luna"],
+   "Fable is the top end model for the hardest problems, and it is priced accordingly."],
+  ["What is the difference between ChatGPT and GPT?", "ChatGPT is the product, GPT is the model underneath", ["GPT is the product, ChatGPT is the model", "They are made by different companies", "ChatGPT is an open weight model"],
+   "ChatGPT is the product and GPT is the model underneath, though the two names get used interchangeably."],
+  ["How does OpenAI now name its tiers, largest to smallest?", "Sol, Terra, Luna", ["Fable, Opus, Sonnet", "Gemini, Gemma, Llama", "Large, Medium, Small"],
+   "GPT-5.6 ships as Sol, Terra, and Luna, largest to smallest. GPT-6 Astra is the current top model."],
+  ["What is Gemma?", "Google's small open model that you can download and run yourself", ["Google's large commercial model", "Meta's open model", "A model from Alibaba"],
+   "Gemma is the small open model from Google. Gemini is the large commercial model."],
+  ["Which company makes Gemini?", "Google", ["Anthropic", "Alibaba", "Meta"],
+   "Google makes Gemini, which is sold through Google and built into Search and Workspace."],
+  ["Which company makes Qwen?", "Alibaba", ["Meta", "Google", "Anthropic"],
+   "Alibaba makes Qwen. It is open weight and strong at coding and at languages other than English."],
+  ["Which company makes Llama?", "Meta (Facebook)", ["Alibaba", "OpenAI", "Anthropic"],
+   "Meta makes Llama, the model that made open weight AI mainstream."],
+  ["What is SOOFI-S?", "A German open-source model that publishes its full training data list", ["A French model from Mistral", "A small model from Google", "A harness for Claude"],
+   "Germany released SOOFI-S (Sovereign Open-Source Foundation Models), and it publishes its training data list (about 27 trillion tokens) so the data can be audited."],
+  ["Why is Europe building sovereign models?", "So public data does not have to leave the region", ["To make models cheaper than Haiku", "To stop using tokens", "Because open weight models are not allowed"],
+   "Sovereign models let public data stay in the region. Mistral in France is the best known."],
+  ["What is the best known European sovereign model company mentioned?", "Mistral, in France", ["Qwen, in China", "Llama, in the US", "Gemma, in Germany"],
+   "Mistral in France is the best known."],
+  ["What is a closed model?", "A model that runs on the vendor's servers, so you rent access", ["A model you download and run on your own hardware", "A model with no parameters", "A model that is always free"],
+   "Closed models (Claude, GPT, Gemini) run on the vendor's servers. Open weight models (Llama, Qwen, Gemma) can be downloaded and run on your own hardware."],
+  ["Which of these is an open weight model?", "Llama", ["Claude", "GPT", "Gemini"],
+   "Llama, Qwen, and Gemma are open weight. Claude, GPT, and Gemini are closed."],
+  ["What is the business tradeoff between open weight and closed models?", "Control and privacy versus convenience and top end quality", ["Cost versus color", "Speed versus spelling", "Size versus age"],
+   "Open weight gives control and privacy. Closed gives convenience and top end quality."],
+  ["What is the bottom line for choosing a model in business?", "There is no single best model, only a best fit for the job, budget, and privacy requirement", ["Always pick the biggest model", "Always pick the cheapest model", "Always pick the newest model"],
+   "There is no single best model. There is a best fit for the job, the budget, and the privacy requirement."],
+  ["What are parameters?", "The numbers inside a model that get tuned during training", ["Chunks of text", "Typed shortcuts like /clear", "The price per message"],
+   "Parameters are the numbers inside a model that get tuned during training. Sizes are quoted in billions, like a 7B model versus a 70B model."],
+  ["How should you pick a model?", "By result, speed, and price - not by parameter count", ["By parameter count only", "By the length of its name", "By how new the harness is"],
+   "You do not pick models by parameter count. You pick by result, speed, and price."],
+  ["What is a token?", "A chunk of text, roughly 3/4 of an English word on average", ["A single number inside the model", "A saved conversation", "A type of harness"],
+   "Tokens are chunks of text. AI reads tokens, not whole words. Short common words are one token and longer or unusual words get split up."],
+  ["Why do tokens matter?", "You pay per token, input and output, and every model has a limit on how many it can consider at once", ["They make the model smarter", "They are free", "They only matter for pictures"],
+   "You pay per token, and the limit on tokens a model can consider at once is called the context window."],
+  ["What is the context window?", "The limit on how many tokens a model can consider at once", ["The chat window on screen", "The list of slash commands", "The price of a model"],
+   "Every model has a limit on how many tokens it can consider at once. That limit is the context window."],
+  ["Why does a long chat cost more per message than a short one?", "Every turn resends the whole conversation", ["Long chats use a larger model", "Messages get longer words", "The harness charges a fee"],
+   "Every turn resends the whole conversation, so long chat history burns more tokens. Large context windows can also cause AI sessions to drift off track."],
+  ["What is a harness?", "The program you use to interact with an AI model", ["The AI model itself", "A type of token", "The training data"],
+   "The harness is the program you use. The model is the AI behind it. Think of the harness as the music player and the model as the music."],
+  ["Which of these is an example of a harness?", "Claude Code", ["Sonnet", "Haiku", "Llama"],
+   "Example harnesses: the Claude app, Claude Code, Codex, Forge Code, and Ollama. Sonnet, Haiku, and Llama are models."],
+  ["In the music player comparison, what is the model?", "The music", ["The music player", "The speakers", "The playlist name"],
+   "The harness is the music player and the model is the music."],
+  ["What is a skill in a harness?", "Reusable instructions for a repeated task", ["A model turned loose to work on its own", "A typed shortcut like /clear", "A file Claude reads every session"],
+   "Skills are reusable instructions for a repeated task."],
+  ["What is an agent in a harness?", "A model turned loose to work through several steps on its own", ["Reusable instructions for a repeated task", "A typed shortcut", "A standing instruction file"],
+   "Agents are a model turned loose to work through several steps on its own."],
+  ["What is a slash command?", "A typed shortcut, like /clear, that controls the tool", ["A kind of token", "A kind of model", "A GitHub branch"],
+   "Slash commands are typed shortcuts like /clear that control the tool."],
+  ["What is CLAUDE.md?", "A standing instruction file Claude reads every session", ["A Claude model tier", "A GitHub setting", "A kind of token"],
+   "CLAUDE.md is read every session. Global applies to all your work, and project applies to one folder."],
+  ["What does /clear do?", "Starts a fresh conversation", ["Edits what Claude remembers", "Shrinks the data in the context", "Manages agents"],
+   "/clear starts a fresh conversation."],
+  ["What does /compact do?", "Shrinks the data in the context, which can reduce cost and drift", ["Starts a fresh conversation", "Edits what Claude remembers", "Manages agents"],
+   "/compact shrinks the data in the context, which can reduce cost and drift."],
+  ["What does /memory do?", "Edits what Claude remembers", ["Starts a fresh conversation", "Shrinks the context", "Manages agents"],
+   "/memory edits what Claude remembers."],
+  ["What does /agents do?", "Manages agents", ["Starts a fresh conversation", "Edits what Claude remembers", "Shrinks the context"],
+   "/agents manages agents."],
+  ["How can you pick up your work later in the Claude harness?", "Ask Claude to write the results to a file", ["Leave the chat open forever", "Use a bigger context window", "Rename the model"],
+   "Ask Claude to write results to a file if you want to pick up later."],
+  ["Which two AI systems do you have access to in this class?", "Claude and U of I Mindrouter", ["ChatGPT and Gemini", "Llama and Qwen", "Claude and Ollama"],
+   "In this class you have access to Claude and U of I Mindrouter."],
+  ["Do you need the CLI for this class?", "No, but you should know it exists and roughly what it provides", ["Yes, for every assignment", "No, and you should ignore it completely", "Yes, but only on Macs"],
+   "The CLI is more complicated and much more powerful, but you do not need it for this class."],
+  ["Which interface is the default for in-class illustration?", "VS Code", ["The CLI", "The Mindrouter website", "Ollama"],
+   "VS Code is the default for in-class illustration, but all interfaces are acceptable. Use whatever you are comfortable with."],
+  ["Which system has more setup, Claude or Mindrouter?", "Mindrouter", ["Claude", "They are exactly the same", "Neither needs setup"],
+   "Mindrouter has more setup than Claude. The reference file is week-3-cline-mindrouter-setup.md."]
+];
+
+const JOKES = [
+  "What do you call a cow with no legs? Ground beef.",
+  "Why did the cow cross the road? To get to the udder side.",
+  "What do you call a sleeping cow? A bulldozer.",
+  "What do you call a cow during an earthquake? A milkshake.",
+  "Why do cows wear bells? Because their horns don't work.",
+  "What do you get from a pampered cow? Spoiled milk.",
+  "Where do cows go on date night? To the moo-vies.",
+  "What do you call a cow that plays an instrument? A moo-sician.",
+  "Why did the cow jump over the moon? The farmer had cold hands.",
+  "What do you call a cow that gives no milk? A milk dud.",
+  "How does a cow do math? With a cow-culator.",
+  "What do you call a grumpy cow? Moo-dy.",
+  "What do you call a cow with a twitch? Beef jerky.",
+  "How do you make a milkshake? Give a cow a pogo stick.",
+  "What is a cow's favorite game? Moo-sical chairs.",
+  "Where does a cow go to get its hair done? The moo-ty salon.",
+  "What does a cow put on its sandwich? Moo-stard.",
+  "What is a cow's favorite place to visit? The moo-seum.",
+  "What do you call a cow on a trampoline? A milk shaker.",
+  "What do you call a cow with two legs? Lean beef.",
+  "What do cows read? Cattle-logs.",
+  "What did the cow say when it got a great grade? \"That was uddermazing!\""
+];
+
+const QUIZ_LENGTH = 20;
+const $ = (id) => document.getElementById(id);
+const card = $("card");
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+let questions, jokes, index, score, answered;
+
+function start() {
+  questions = shuffle(BANK).slice(0, QUIZ_LENGTH).map(([q, right, wrong, why]) => ({
+    q, right, why, options: shuffle([right, ...wrong])
+  }));
+  jokes = shuffle(JOKES);
+  index = 0;
+  score = 0;
+  showQuestion();
+}
+
+function showIntro() {
+  card.innerHTML =
+    '<div class="center">' +
+    '<div class="big-cow">🐄</div>' +
+    '<h2>Welcome to the pasture!</h2>' +
+    '<p>' + QUIZ_LENGTH + ' questions from your Week 1, 2, and 3 narratives. The questions and answers are shuffled every time.</p>' +
+    '<ul class="rules">' +
+    '<li>Pick an answer to see why it was right or wrong.</li>' +
+    '<li>Every right answer earns you a cow joke.</li>' +
+    '</ul><br>' +
+    '<button class="btn" id="go">Let\'s moo-ve! 🐮</button></div>';
+  $("go").onclick = start;
+}
+
+function showQuestion() {
+  const item = questions[index];
+  answered = false;
+  card.innerHTML =
+    '<div class="bar"><div style="width:' + (index / QUIZ_LENGTH * 100) + '%"></div></div>' +
+    '<div class="meta"><span>🐮 Question ' + (index + 1) + ' of ' + QUIZ_LENGTH + '</span><span>Herd points: ' + score + '</span></div>' +
+    '<h2 id="qtext"></h2><div id="opts"></div>' +
+    '<div id="explain" class="box explain hidden"></div>' +
+    '<div id="reward" class="box reward hidden"></div>' +
+    '<div class="center"><button class="btn hidden" id="next"></button></div>';
+  $("qtext").textContent = item.q;
+  item.options.forEach((text) => {
+    const b = document.createElement("button");
+    b.className = "opt";
+    b.textContent = text;
+    b.onclick = () => choose(b, text);
+    $("opts").appendChild(b);
+  });
+}
+
+function choose(btn, text) {
+  if (answered) return;
+  answered = true;
+  const item = questions[index];
+  const isRight = text === item.right;
+  if (isRight) score++;
+
+  document.querySelectorAll(".opt").forEach((b) => {
+    b.disabled = true;
+    if (b.textContent === item.right) b.classList.add("correct");
+  });
+  if (!isRight) btn.classList.add("wrong");
+
+  const ex = $("explain");
+  ex.className = "box explain " + (isRight ? "right" : "miss");
+  ex.innerHTML = "<h3></h3><p></p>";
+  ex.querySelector("h3").textContent = isRight ? "✅ Moo-velous! That's right." : "❌ Not quite - that's a cow-lamity.";
+  ex.querySelector("p").textContent = (isRight ? "" : "The right answer: " + item.right + ". ") + item.why;
+
+  const next = $("next");
+  next.textContent = index === QUIZ_LENGTH - 1 ? "See my results 🐄" : "Next question ➡️";
+  next.onclick = () => { index++; index < QUIZ_LENGTH ? showQuestion() : showResults(); };
+
+  if (isRight) {
+    const rw = $("reward");
+    rw.innerHTML = "<h3>🥛 Your cow joke reward</h3><p></p>";
+    rw.querySelector("p").textContent = jokes[(score - 1) % jokes.length];
+    setTimeout(() => { rw.classList.remove("hidden"); next.classList.remove("hidden"); }, 700);
+  } else {
+    next.classList.remove("hidden");
+  }
+}
+
+function showResults() {
+  let title, cow;
+  const pct = score / QUIZ_LENGTH;
+  if (pct >= 0.9) { title = "Grand Champion Cow! Outstanding!"; cow = "🏆🐮"; }
+  else if (pct >= 0.7) { title = "Prize-winning heifer. Nice work!"; cow = "🐄"; }
+  else if (pct >= 0.5) { title = "Still chewing on it. A bit more study will help."; cow = "🐮"; }
+  else { title = "Back to the pasture for more grazing on the narratives."; cow = "🌾🐮"; }
+  card.innerHTML =
+    '<div class="center"><div class="big-cow">' + cow + '</div>' +
+    '<h2>Quiz complete!</h2>' +
+    '<div class="score">' + score + ' / ' + QUIZ_LENGTH + '</div>' +
+    '<p>' + title + '</p>' +
+    '<button class="btn" id="again">Round up a new herd 🔄</button></div>';
+  $("again").onclick = start;
+}
+
+showIntro();
+</script>
+</body>
+</html>
